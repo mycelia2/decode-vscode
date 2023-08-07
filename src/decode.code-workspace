@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": "../../decode-backend"
+		},
+		{
+			"path": ".."
+		}
+	],
+	"settings": {
+		"typescript.tsc.autoDetect": "off"
+	}
+}
