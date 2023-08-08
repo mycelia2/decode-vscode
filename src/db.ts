@@ -1,8 +1,10 @@
 import Realm from "realm";
-import { v4 as uuidv4 } from "uuid";
+
+const APP_ID = process.env.REALM_APP_ID as string;
+const app = new Realm.App({ id: APP_ID });
 
 class ChatSession extends Realm.Object {
-  _id!: string;
+  public _id!: Realm.BSON.ObjectId;
   userId!: string;
   startTime!: Date;
   lastMessagePreview!: string;
@@ -13,7 +15,7 @@ class ChatSession extends Realm.Object {
     name: "ChatSession",
     primaryKey: "_id",
     properties: {
-      _id: "string",
+      _id: { type: "objectId", default: () => new Realm.BSON.ObjectId() },
       userId: "string",
       startTime: "date",
       lastMessagePreview: "string",
@@ -24,7 +26,7 @@ class ChatSession extends Realm.Object {
 }
 
 class ChatDetail extends Realm.Object {
-  _id!: string;
+  public _id!: Realm.BSON.ObjectId;
   sessionId!: string;
   message!: string;
   timestamp!: Date;
@@ -34,7 +36,7 @@ class ChatDetail extends Realm.Object {
     name: "ChatDetail",
     primaryKey: "_id",
     properties: {
-      _id: "string",
+      _id: { type: "objectId", default: () => new Realm.BSON.ObjectId() },
       sessionId: "string",
       message: "string",
       timestamp: "date",
@@ -44,6 +46,7 @@ class ChatDetail extends Realm.Object {
 }
 
 class FileContents extends Realm.Object {
+  public _id!: Realm.BSON.ObjectId;
   filePath!: string;
   classes!: string[];
   functions!: string[];
@@ -52,8 +55,9 @@ class FileContents extends Realm.Object {
 
   static schema = {
     name: "FileContents",
-    primaryKey: "filePath",
+    primaryKey: "_id",
     properties: {
+      _id: { type: "objectId", default: () => new Realm.BSON.ObjectId() },
       filePath: "string",
       classes: "string[]",
       functions: "string[]",
@@ -62,22 +66,21 @@ class FileContents extends Realm.Object {
     },
   };
 }
-export { ChatSession, ChatDetail, FileContents };
 
-export async function createChatSession(userId: string) {
-  const realm = await Realm.open({ schema: [ChatSession] });
-  const _id = uuidv4(); // Generate a unique ID using UUID
+const SCHEMA = [ChatSession, ChatDetail, FileContents];
 
-  realm.write(() => {
-    realm.create("ChatSession", {
-      _id,
-      userId,
-      startTime: new Date(),
-      lastMessagePreview: "",
-      status: "active",
-      unreadCount: 0,
-    });
-  });
+class RealmInstance {
+  private static instance: Realm | null = null;
 
-  return _id;
+  private constructor() {}
+
+  static getInstance(): Realm {
+    if (!RealmInstance.instance) {
+      RealmInstance.instance = new Realm({ schema: SCHEMA });
+    }
+
+    return RealmInstance.instance;
+  }
 }
+
+export { ChatSession, ChatDetail, FileContents, RealmInstance, app };

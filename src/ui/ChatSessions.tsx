@@ -1,28 +1,20 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom"; // Using the original useHistory
-import Realm from "realm";
-import { ChatSession } from "../db";
+import { useNavigate } from "react-router-dom";
+import { ChatSession, RealmInstance } from "../db";
 
 export function ChatSessions({ userId }: { userId: string }) {
-  // Renaming to camelCase. You might prefer to disable the rule instead.
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate(); // Back to useHistory
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchSessions = async () => {
-      const realmConfig = { schema: [ChatSession] };
-      const realm = new Realm(realmConfig);
+      const realm = RealmInstance.getInstance();
       const realmResults = realm
-        .objects("ChatSession")
+        .objects<ChatSession>("ChatSession")
         .filtered("userId = $0", userId);
 
-      // Convert realm results to array using map
-      const sessionsArray: ChatSession[] = realmResults.map(
-        (session: any) => session
-      );
-
-      setSessions(sessionsArray);
+      setSessions([...realmResults]);
       setLoading(false);
     };
 
@@ -31,12 +23,23 @@ export function ChatSessions({ userId }: { userId: string }) {
 
   const handleSessionClick = (session: ChatSession) => {
     if (session.status === "active") {
-      navigate(`/details/${session._id}`);
+      navigate(`/details/${session._id.toString()}`);
     }
   };
 
   const handleNewSessionClick = () => {
-    // Create a new chat session
+    const realm = RealmInstance.getInstance();
+    const newChatSession = realm.write(() => {
+      return realm.create<ChatSession>("ChatSession", {
+        userId,
+        startTime: new Date(),
+        lastMessagePreview: "",
+        status: "active",
+        unreadCount: 0,
+      });
+    });
+
+    navigate(`/details/${newChatSession._id.toString()}`);
   };
 
   if (loading) {
@@ -46,7 +49,10 @@ export function ChatSessions({ userId }: { userId: string }) {
   return (
     <div>
       {sessions.map((session) => (
-        <div key={session._id} onClick={() => handleSessionClick(session)}>
+        <div
+          key={session._id.toString()}
+          onClick={() => handleSessionClick(session)}
+        >
           <p>{session.lastMessagePreview}</p>
           <p>{session.status}</p>
           <p>{session.unreadCount}</p>

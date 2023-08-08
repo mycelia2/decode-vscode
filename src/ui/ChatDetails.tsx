@@ -1,51 +1,58 @@
-import React, { SetStateAction, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import Realm from "realm"; // Adjusting the import for Realm
-import { ChatDetail, FileContents } from "../db";
+import { ChatDetail, FileContents, RealmInstance } from "../db";
 import Downshift from "downshift";
 import { debounce } from "lodash";
 
 export function ChatDetails() {
-  // Using camelCase for function name as per ESLint recommendation
-  const { sessionId } = useParams();
-
-  // Specifying types explicitly for details and suggestions
+  const { sessionId } = useParams<string>();
   const [details, setDetails] = useState<ChatDetail[]>([]);
   const [suggestions, setSuggestions] = useState<FileContents[]>([]);
   const [loading, setLoading] = useState(true);
-
   const [inputValue, setInputValue] = useState("");
 
   const handleInputChange = debounce(
     async (event: React.ChangeEvent<HTMLInputElement>) => {
       setInputValue(event.target.value);
-      const realmInstance = new Realm({ schema: [FileContents] }); // Using instance of Realm
-      const results = realmInstance
+      const realm = RealmInstance.getInstance();
+      const results = realm
         .objects<FileContents>("FileContents")
-        .filtered(`...your filter logic...`);
+        .filtered(`content CONTAINS "${event.target.value}"`);
       setSuggestions([...results]);
     },
     300
   );
 
-  const handleSelect = (
-    selectedItem: { filePath: SetStateAction<string> } | null
-  ) => {
+  const handleSelect = (selectedItem: { filePath: string } | null) => {
     if (selectedItem) {
       setInputValue(selectedItem.filePath);
     }
   };
 
-  useEffect(() => {
-    const fetchDetails = async () => {
-      const realmInstance = new Realm({ schema: [ChatDetail] }); // Using instance of Realm
-      const detailsFromRealm = realmInstance
-        .objects<ChatDetail>("ChatDetail")
-        .filtered("sessionId = $0", sessionId);
-      setDetails([...detailsFromRealm]);
-      setLoading(false);
-    };
+  const handleSendMessage = () => {
+    const realm = RealmInstance.getInstance();
+    realm.write(() => {
+      realm.create<ChatDetail>("ChatDetail", {
+        sessionId,
+        message: inputValue,
+        timestamp: new Date(),
+        sender: "user",
+      });
+    });
+    setInputValue("");
+    fetchDetails();
+  };
 
+  const fetchDetails = () => {
+    const realm = RealmInstance.getInstance();
+    const detailsFromRealm = realm
+      .objects<ChatDetail>("ChatDetail")
+      .filtered(`sessionId = "${sessionId}"`);
+    setDetails([...detailsFromRealm]);
+    setLoading(false);
+  };
+
+  useEffect(() => {
     fetchDetails();
   }, [sessionId]);
 
@@ -55,13 +62,17 @@ export function ChatDetails() {
 
   return (
     <div>
-      {details.map((detail) => (
-        <div key={detail._id}>
-          <p>{detail.message}</p>
-          <p>{detail.timestamp.toString()}</p>
-          <p>{detail.sender}</p>
-        </div>
-      ))}
+      <div className="chat-container">
+        {details.map((detail) => (
+          <div
+            key={detail._id.toString()}
+            className={`message ${detail.sender}`}
+          >
+            <p>{detail.message}</p>
+            <p>{detail.timestamp.toString()}</p>
+          </div>
+        ))}
+      </div>
       <Downshift inputValue={inputValue} onChange={handleSelect}>
         {({
           getInputProps,
@@ -86,6 +97,7 @@ export function ChatDetails() {
           </div>
         )}
       </Downshift>
+      <button onClick={handleSendMessage}>Send</button>
     </div>
   );
 }

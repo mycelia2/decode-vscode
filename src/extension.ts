@@ -1,9 +1,9 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import * as fs from "fs";
-import { createChatSession } from "./db";
+import { app, RealmInstance, ChatSession } from "./db";
 import { parseAndStoreFile } from "./fileParser";
-import { loginUser } from "./ui/Login";
+import { loginUser } from "./auth"; // Import loginUser from auth.ts
 
 export function activate(context: vscode.ExtensionContext) {
   console.log(
@@ -34,11 +34,7 @@ export function activate(context: vscode.ExtensionContext) {
         panel.webview.onDidReceiveMessage(async (message) => {
           switch (message.command) {
             case "login":
-              const user = await loginUser(
-                context,
-                message.email,
-                message.password
-              );
+              const user = await loginUser(message.email, message.password);
               panel?.webview.postMessage({ command: "loginResponse", user });
               break;
             case "navigateToChatDetails":
@@ -49,10 +45,18 @@ export function activate(context: vscode.ExtensionContext) {
               });
               break;
             case "createNewChatSession":
-              const createdSessionId = await createChatSession(message.userId);
+              const realm = RealmInstance.getInstance();
+              realm.write(() => {
+                const newChatSession = realm.create(ChatSession, {
+                  userId: app.currentUser?.id,
+                  startTime: new Date(),
+                  lastMessagePreview: "",
+                  status: "active",
+                  unreadCount: 0,
+                });
+              });
               panel?.webview.postMessage({
                 command: "chatSessionCreated",
-                sessionId: createdSessionId,
               });
               break;
           }

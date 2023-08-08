@@ -1,8 +1,5 @@
 import * as React from "react";
-import * as Realm from "realm";
-
-const APP_ID = process.env.REALM_APP_ID as string;
-const app = new Realm.App({ id: APP_ID });
+import { loginUser } from "../auth";
 
 interface LoginProps {
   onLogin: (user: any) => void;
@@ -16,8 +13,7 @@ export function Login({ onLogin }: LoginProps) {
   const handleLogin = async () => {
     if (email && password) {
       try {
-        const credentials = Realm.Credentials.emailPassword(email, password);
-        const user = await app.logIn(credentials);
+        const user = await loginUser(email, password);
         onLogin(user);
       } catch (error) {
         setError("Login failed. Please check your email and password.");
@@ -43,19 +39,4 @@ export function Login({ onLogin }: LoginProps) {
       {error && <p>{error}</p>}
     </div>
   );
-}
-
-export async function loginUser(
-  context: any,
-  email: string,
-  password: string
-): Promise<any | null> {
-  try {
-    const credentials = Realm.Credentials.emailPassword(email, password);
-    const user = await app.logIn(credentials);
-    return user;
-  } catch (error) {
-    console.error("Login failed:", error);
-    return null;
-  }
 }

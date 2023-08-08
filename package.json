@@ -30,8 +30,8 @@
     },
     "commands": [
       {
-        "command": "decode-vscode.helloWorld",
-        "title": "Hello World"
+        "command": "decode-vscode.login",
+        "title": "Login"
       }
     ]
   },
@@ -67,6 +67,7 @@
     "webpack-cli": "^5.1.4"
   },
   "dependencies": {
+    "dotenv": "^16.3.1",
     "downshift": "^8.1.0",
     "lodash": "^4.17.21",
     "node-fetch": "^3.3.2",
