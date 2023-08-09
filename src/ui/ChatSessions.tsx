@@ -21,13 +21,17 @@ export function ChatSessions({ userId }: { userId: string }) {
    */
   useEffect(() => {
     const fetchSessions = async () => {
-      const realm = RealmInstance.getInstance();
-      const realmResults = realm
-        .objects<ChatSession>("ChatSession")
-        .filtered("userId = $0", userId);
-
-      setSessions([...realmResults]);
-      setLoading(false);
+      RealmInstance.getInstance()
+        .then((realm) => {
+          const realmResults = realm
+            .objects<ChatSession>("ChatSession")
+            .filtered("userId = $0", userId);
+          setSessions([...realmResults]);
+          setLoading(false);
+        })
+        .catch((error) => {
+          console.error("An error occurred:", error);
+        });
     };
 
     fetchSessions();
@@ -47,19 +51,28 @@ export function ChatSessions({ userId }: { userId: string }) {
   /**
    * Creates a new chat session and navigates to its details page.
    */
-  const handleNewSessionClick = () => {
-    const realm = RealmInstance.getInstance();
-    const newChatSession = realm.write(() => {
-      return realm.create<ChatSession>("ChatSession", {
-        userId,
-        startTime: new Date(),
-        lastMessagePreview: "",
-        status: "active",
-        unreadCount: 0,
-      });
-    });
+  const handleNewSessionClick = async () => {
+    try {
+      const realm = await RealmInstance.getInstance();
 
-    navigate(`/details/${newChatSession._id.toString()}`);
+      const newChatSession = realm.write(() => {
+        return realm.create<ChatSession>("ChatSession", {
+          userId,
+          startTime: new Date(),
+          lastMessagePreview: "",
+          status: "active",
+          unreadCount: 0,
+        });
+      });
+
+      if (newChatSession && newChatSession._id) {
+        navigate(`/details/${newChatSession._id.toString()}`);
+      } else {
+        console.error("Failed to create new chat session");
+      }
+    } catch (error) {
+      console.error("An error occurred while creating a new session:", error);
+    }
   };
 
   if (loading) {

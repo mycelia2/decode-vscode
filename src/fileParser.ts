@@ -3,7 +3,7 @@ import traverse from "@babel/traverse";
 import Realm, { UpdateMode } from "realm";
 import * as crypto from "crypto";
 
-export class FileContents extends Realm.Object {
+class FileContents extends Realm.Object {
   filePath!: string;
   contentHash!: string;
   classes!: string[];

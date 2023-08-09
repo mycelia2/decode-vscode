@@ -1,3 +1,5 @@
+# Project Structure
+
 decode-vscode/
 ├── src/
 │ ├── db.ts # File for defining the Realm schema and creating chat sessions

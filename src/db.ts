@@ -1,4 +1,6 @@
 import Realm from "realm";
+import * as os from "os";
+import * as path from "path";
 
 const APP_ID = process.env.REALM_APP_ID as string;
 const app = new Realm.App({ id: APP_ID });
@@ -70,16 +72,31 @@ class FileContents extends Realm.Object {
 
 const SCHEMA = [ChatSession, ChatDetail, FileContents];
 
+import fs from "fs";
+
 class RealmInstance {
   private static instance: Realm | null = null;
 
   private constructor() {}
 
-  static getInstance(): Realm {
+  static async getInstance(): Promise<Realm> {
     if (!RealmInstance.instance) {
-      RealmInstance.instance = new Realm({ schema: SCHEMA });
+      const realmPath = path.join(os.homedir(), ".myapp", "realm");
+
+      // Make sure the directory exists
+      if (!fs.existsSync(path.dirname(realmPath))) {
+        fs.mkdirSync(path.dirname(realmPath), { recursive: true });
+      }
+
+      // Open the realm asynchronously and store the result in the instance field
+      RealmInstance.instance = await Realm.open({
+        path: realmPath,
+        schema: SCHEMA,
+        inMemory: true,
+      });
     }
 
+    // Since instance is now guaranteed to be set, we can return it directly
     return RealmInstance.instance;
   }
 }

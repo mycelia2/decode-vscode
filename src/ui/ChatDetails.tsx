@@ -1,16 +1,28 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useParams } from "react-router-dom";
-import { ChatDetail, FileContents, RealmInstance } from "../db";
+import { ChatDetail, RealmInstance } from "../db";
 import Downshift from "downshift";
 import { debounce } from "lodash";
 import ReactMarkdown from "react-markdown";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { solarizedlight } from "react-syntax-highlighter/dist/esm/styles/prism";
+import vscode from "vscode";
+import {
+  generateProjectStructure,
+  getAutoCompleteSuggestions,
+  getElementDetails,
+} from "../codeParser";
 
+/**
+ * ChatDetails component is responsible for displaying the chat details of a specific session.
+ * It also provides a search functionality to search for files based on their content.
+ * The search results are displayed in a dropdown list.
+ * The user can select a file from the dropdown list and send its path as a message to the AI.
+ */
 export function ChatDetails() {
   const { sessionId } = useParams<string>();
   const [details, setDetails] = useState<ChatDetail[]>([]);
-  const [suggestions, setSuggestions] = useState<FileContents[]>([]);
+  const [suggestions, setSuggestions] = useState<
+    { name: string; filePath: string }[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [inputValue, setInputValue] = useState("");
   const [aiResponses, setAiResponses] = useState<string[]>([]);
@@ -20,23 +32,66 @@ export function ChatDetails() {
   const handleInputChange = debounce(
     async (event: React.ChangeEvent<HTMLInputElement>) => {
       setInputValue(event.target.value);
-      const realm = RealmInstance.getInstance();
-      const results = realm
-        .objects<FileContents>("FileContents")
-        .filtered(`content CONTAINS "${event.target.value}"`);
-      setSuggestions([...results]);
+      const workspaceRootPath = vscode.workspace.workspaceFolders
+        ? vscode.workspace.workspaceFolders[0].uri.fsPath
+        : undefined;
+      if (workspaceRootPath) {
+        const results = await getAutoCompleteSuggestions(
+          workspaceRootPath,
+          event.target.value
+        );
+        setSuggestions(results);
+      }
     },
     300
   );
 
-  const handleSelect = (selectedItem: { filePath: string } | null) => {
+  /**
+   * This function is called when the user selects a file from the dropdown list.
+   * It updates the input value with the selected file path.
+   */
+  const handleSelect = async (
+    selectedItem: { name: string; filePath: string } | null
+  ) => {
     if (selectedItem) {
-      setInputValue(selectedItem.filePath);
+      const details = await getElementDetails(
+        selectedItem.name,
+        selectedItem.filePath
+      );
+      if (details) {
+        setInputValue(
+          `${inputValue}\n${details.type}: ${details.name}\n${details.code}`
+        );
+      } else {
+        setInputValue(selectedItem.filePath);
+      }
     }
   };
 
+  /**
+   * This function is called when the user selects a file from the dropdown list.
+   * It updates the input value with the selected file path.
+   */
   const handleSendMessage = async () => {
     setIsSending(true);
+    // If this is the first message, send the project structure to the AI
+    if (details.length === 0) {
+      // Get the workspace root path
+      const workspaceRootPath = vscode.workspace.workspaceFolders
+        ? vscode.workspace.workspaceFolders[0].uri.fsPath
+        : undefined;
+      if (workspaceRootPath) {
+        const projectStructure = generateProjectStructure(workspaceRootPath, 1);
+        // Send the project structure to the extension
+        window.parent.postMessage(
+          {
+            command: "sendMessageToAI",
+            message: projectStructure,
+          },
+          "*"
+        );
+      }
+    }
     // Send a message to the extension
     window.parent.postMessage(
       {
@@ -46,20 +101,27 @@ export function ChatDetails() {
       "*"
     );
   };
-
   const fetchDetails = () => {
-    const realm = RealmInstance.getInstance();
-    const detailsFromRealm = realm
-      .objects<ChatDetail>("ChatDetail")
-      .filtered(`sessionId = "${sessionId}"`);
-    setDetails([...detailsFromRealm]);
-    setLoading(false);
+    RealmInstance.getInstance().then((realm) => {
+      const detailsFromRealm = realm
+        .objects<ChatDetail>("ChatDetail")
+        .filtered(`sessionId = "${sessionId}"`);
+      setDetails([...detailsFromRealm]);
+      setLoading(false);
+    });
   };
 
+  /**
+   * This effect is responsible for fetching the chat details when the component mounts.
+   */
   useEffect(() => {
     fetchDetails();
   }, [sessionId]);
 
+  /**
+   * This effect is responsible for handling the messages received from the extension.
+   * When a message is received, it updates the aiResponses state with the AI's response.
+   */
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       const data = event.data as { command: string; message: string };
@@ -67,6 +129,23 @@ export function ChatDetails() {
       if (data.command === "aiResponse") {
         setAiResponses((prevResponses) => [...prevResponses, data.message]);
         setIsSending(false);
+
+        // Store the AI's response in the ChatDetail Realm object
+        RealmInstance.getInstance()
+          .then((realm) => {
+            realm.write(() => {
+              realm.create(ChatDetail, {
+                sessionId: sessionId,
+                message: data.message,
+                timestamp: new Date(),
+                sender: "ai",
+              });
+            });
+          })
+          .catch((error) => {
+            // Handle any errors that may occur here
+            console.error("An error occurred:", error);
+          });
       }
     };
 
@@ -77,6 +156,9 @@ export function ChatDetails() {
     };
   }, []);
 
+  /**
+   * This effect is responsible for scrolling the chat container to the bottom whenever a new message is added.
+   */
   useEffect(() => {
     chatContainerRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [details, aiResponses]);

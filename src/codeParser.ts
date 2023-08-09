@@ -234,11 +234,65 @@ export function getZoomLevelView(
   return result.trim();
 }
 
+function gatherRelevantFiles(
+  rootPath: string,
+  config: ProjectStructureConfig
+): string[] {
+  const files: string[] = [];
+
+  function traverseDirectory(dirPath: string): void {
+    const entries = fs.readdirSync(dirPath);
+
+    for (const entry of entries) {
+      const entryPath = path.join(dirPath, entry);
+      const stats = fs.statSync(entryPath);
+
+      if (isRelevantFile(entryPath, stats, config)) {
+        if (stats.isDirectory()) {
+          traverseDirectory(entryPath);
+        } else if (stats.isFile()) {
+          files.push(entryPath);
+        }
+      }
+    }
+  }
+
+  traverseDirectory(rootPath);
+  return files;
+}
+
+export async function getAutoCompleteSuggestions(
+  rootPath: string, // We take rootPath as an input now
+  inputValue: string,
+  config: ProjectStructureConfig = {} // Config can be provided as well
+): Promise<{ name: string; filePath: string }[]> {
+  const query = inputValue.split("@")[1];
+
+  // Using our new gatherRelevantFiles function
+  const files = gatherRelevantFiles(rootPath, config);
+
+  const suggestions: { name: string; filePath: string }[] = [];
+  for (const file of files) {
+    const code = fs.readFileSync(file, "utf-8");
+    const ast = parseCodeIntoAST(code);
+
+    traverse(ast, {
+      Identifier(path) {
+        if (path.node.name.startsWith(query)) {
+          suggestions.push({ name: path.node.name, filePath: file });
+        }
+      },
+    });
+  }
+
+  return suggestions;
+}
+
 /**
  * Represents the details of a specific code element.
  */
 export type ElementDetails = {
-  type: "Function" | "Class" | "Variable" | "Module" | "Unknown";
+  type: string;
   name: string;
   code: string;
 };
@@ -255,12 +309,6 @@ function parseCodeIntoAST(code: string): Babel.File {
   });
 }
 
-/**
- * Retrieves the details of a specific code element.
- * @param {string} elementIdentifier - The name of the element.
- * @param {string} filePath - The path of the file containing the element.
- * @returns {Promise<ElementDetails|null>} The details of the element or null if not found.
- */
 export async function getElementDetails(
   elementIdentifier: string,
   filePath: string
@@ -273,14 +321,13 @@ export async function getElementDetails(
   traverse(ast, {
     enter(path) {
       if (
-        (Babel.isFunctionDeclaration(path.node) ||
-          Babel.isClassDeclaration(path.node) ||
-          Babel.isVariableDeclarator(path.node)) &&
-        Babel.isIdentifier(path.node.id) && // Check if id is an Identifier
+        // Checking that the node has an 'id' property
+        "id" in path.node &&
+        Babel.isIdentifier(path.node.id) &&
         path.node.id.name === elementIdentifier
       ) {
         details = {
-          type: getType(path.node),
+          type: path.node.type, // Directly using Babel's type
           name: elementIdentifier,
           code: content.substring(path.node.start!, path.node.end!),
         };
@@ -290,20 +337,4 @@ export async function getElementDetails(
   });
 
   return details;
-}
-
-function getType(
-  node: Babel.Node
-): "Function" | "Class" | "Variable" | "Module" | "Unknown" {
-  if (Babel.isFunctionDeclaration(node)) {
-    return "Function";
-  }
-  if (Babel.isClassDeclaration(node)) {
-    return "Class";
-  }
-  if (Babel.isVariableDeclarator(node)) {
-    return "Variable";
-  }
-  // Additional checks can be added for other types
-  return "Unknown";
 }
