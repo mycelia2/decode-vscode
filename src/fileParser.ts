@@ -1,8 +1,9 @@
-import { ESLint } from "eslint";
+import * as parser from "@babel/parser";
+import traverse from "@babel/traverse";
 import Realm, { UpdateMode } from "realm";
 import * as crypto from "crypto";
 
-class FileContents extends Realm.Object {
+export class FileContents extends Realm.Object {
   filePath!: string;
   contentHash!: string;
   classes!: string[];
@@ -24,47 +25,60 @@ class FileContents extends Realm.Object {
   };
 }
 
-async function parseAndStoreFile(filePath: string, fileContent: string) {
+/**
+ * Parses a file and stores its details in the database.
+ * @param {string} filePath - The path of the file.
+ * @param {string} fileContent - The content of the file.
+ * @returns {Promise<void>}
+ */
+export async function parseAndStoreFile(filePath: string, fileContent: string) {
   const contentHash = crypto
     .createHash("md5")
     .update(fileContent)
     .digest("hex");
 
-  const realm = await Realm.open({ schema: [FileContents] });
-
-  // Use type assertion to specify the expected return type
-  const existingFile = realm.objectForPrimaryKey("FileContents", filePath) as
-    | FileContents
-    | undefined;
-
-  if (existingFile && existingFile.contentHash === contentHash) {
-    return;
-  }
-
-  const eslint = new ESLint();
-  const results = await eslint.lintText(fileContent, { filePath });
+  // Parse the code into an AST
+  const ast = parser.parse(fileContent, {
+    sourceType: "module",
+    plugins: ["typescript"],
+  });
 
   const classes: string[] = [];
   const functions: string[] = [];
   const modules: string[] = [];
   const variables: string[] = [];
 
-  for (const result of results) {
-    for (const message of result.messages) {
-      // Type assertion to access the node property
-      const currentNode = (message as any).node;
-      if (message.ruleId === "no-undef") {
-        variables.push(currentNode.name);
-      } else if (message.ruleId === "no-unused-vars") {
-        if (currentNode.type === "FunctionDeclaration") {
-          functions.push(currentNode.id.name);
-        } else if (currentNode.type === "ClassDeclaration") {
-          classes.push(currentNode.id.name);
-        } else if (currentNode.type === "ImportDeclaration") {
-          modules.push(currentNode.source.value);
-        }
+  traverse(ast, {
+    enter(path) {
+      // Collect class declarations
+      if (path.isClassDeclaration() && path.node.id) {
+        classes.push(path.node.id.name);
       }
-    }
+
+      // Collect function declarations
+      if (path.isFunctionDeclaration() && path.node.id) {
+        functions.push(path.node.id.name);
+      }
+
+      // Collect imported modules
+      if (path.isImportDeclaration()) {
+        modules.push(path.node.source.value);
+      }
+
+      // Collect variable declarations
+      if (path.isVariableDeclarator() && path.node.id.type === "Identifier") {
+        variables.push(path.node.id.name);
+      }
+    },
+  });
+
+  const realm = await Realm.open({ schema: [FileContents] });
+  const existingFile = realm.objectForPrimaryKey("FileContents", filePath) as
+    | FileContents
+    | undefined;
+
+  if (existingFile && existingFile.contentHash === contentHash) {
+    return;
   }
 
   realm.write(() => {
@@ -82,5 +96,3 @@ async function parseAndStoreFile(filePath: string, fileContent: string) {
     );
   });
 }
-
-export { FileContents, parseAndStoreFile };

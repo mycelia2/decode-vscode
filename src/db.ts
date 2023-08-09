@@ -21,6 +21,7 @@ class ChatSession extends Realm.Object {
       lastMessagePreview: "string",
       status: { type: "string", default: "active" },
       unreadCount: { type: "int", default: 0 },
+      chatDetails: { type: "list", objectType: "ChatDetail" },
     },
   };
 }

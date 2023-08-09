@@ -1,9 +1,9 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import * as fs from "fs";
-import { app, RealmInstance, ChatSession } from "./db";
+import { app, RealmInstance, ChatSession, ChatDetail } from "./db";
 import { parseAndStoreFile } from "./fileParser";
-import { loginUser } from "./auth"; // Import loginUser from auth.ts
+import { loginUser } from "./auth";
 
 export function activate(context: vscode.ExtensionContext) {
   console.log(
@@ -59,6 +59,46 @@ export function activate(context: vscode.ExtensionContext) {
                 command: "chatSessionCreated",
               });
               break;
+            case "sendMessageToAI":
+              try {
+                const aiResponse = await sendMessageToAI(message.message);
+                panel?.webview.postMessage({
+                  command: "aiResponse",
+                  message: aiResponse.response,
+                });
+
+                // Store the user's message and the AI's response in the ChatDetail Realm object
+                const realm = RealmInstance.getInstance();
+                realm.write(() => {
+                  realm.create(ChatDetail, {
+                    sessionId: message.sessionId,
+                    message: message.message,
+                    timestamp: new Date(),
+                    sender: "user",
+                  });
+                  realm.create(ChatDetail, {
+                    sessionId: message.sessionId,
+                    message: aiResponse.response,
+                    timestamp: new Date(),
+                    sender: "ai",
+                  });
+                });
+
+                // Update the corresponding ChatSession object
+                const chatSession = realm.objectForPrimaryKey(
+                  ChatSession,
+                  message.sessionId
+                );
+                if (chatSession) {
+                  realm.write(() => {
+                    chatSession.lastMessagePreview = aiResponse.response;
+                    chatSession.unreadCount += 1;
+                  });
+                }
+              } catch (error) {
+                console.error("Failed to send message to AI:", error);
+              }
+              break;
           }
         }, undefined);
       } else {
@@ -82,4 +122,20 @@ export function activate(context: vscode.ExtensionContext) {
 
 export function deactivate() {
   // Close any open connections or cleanup resources if necessary.
+}
+
+async function sendMessageToAI(message: string) {
+  const response = await fetch("http://localhost:8000/query", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ messages: [{ role: "user", content: message }] }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+
+  return await response.json();
 }
