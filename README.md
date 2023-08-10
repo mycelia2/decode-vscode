@@ -28,9 +28,9 @@ Introducing `decode-vs-code`: A transformative integration of OpenAI's Codex wit
 
 - [x] Initiate a new VS Code extension project.
 - [x] Conceive a chat interface mockup.
-- [ ] Bring the chat interface to life using a webview panel.
-- [ ] Embed a user message input channel.
-- [ ] Integrate event handlers for input.
+- [x] Bring the chat interface to life using a webview panel.
+- [x] Embed a user message input channel.
+- [x] Integrate event handlers for input.
 
 ### **2. OpenAI Codex Communication**
 
