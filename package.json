@@ -23,21 +23,21 @@
     "views": {
       "decodeVscodeContainer": [
         {
-          "id": "decodeVscodeView",
+          "id": "decode-vs-code",
           "name": "Decode VSCode View"
         }
       ]
     },
-    "commands": [
-      {
-        "command": "decode-vs-code.openSidebar",
-        "title": "Open Sidebar"
-      },
-      {
-        "command": "decode-vs-code.login",
-        "title": "Login"
-      }
-    ]
+  "commands": [
+    {
+      "command": "decode-vs-code.openChatDetails",
+      "title": "Open Chat Details"
+    },
+    {
+      "command": "decode-vs-code.createChatSession",
+      "title": "Create Chat Session"
+    }
+  ]
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
