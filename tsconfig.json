@@ -1,15 +1,13 @@
 {
   "compilerOptions": {
+    "jsx": "react",
     "module": "commonjs",
-    "target": "ES2022",
+    "target": "ES2020",
     "outDir": "out",
-    "lib": ["ES2022", "DOM"], // Add "DOM" here
+    "lib": ["dom", "ES2020"],
     "sourceMap": true,
     "rootDir": "src",
-    "strict": true,
-    "types": ["node"],
-    "typeRoots": ["./node_modules/@types"],
-    "jsx": "react",
-    "esModuleInterop": true
-  }
+    "strict": true
+  },
+  "exclude": ["node_modules"]
 }

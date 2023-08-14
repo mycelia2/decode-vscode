@@ -1,15 +1,20 @@
-import React, { useEffect, useState, useRef } from "react";
+import * as React from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams } from "react-router-dom";
-import { ChatDetail, RealmInstance } from "../db";
+import { ChatDetail } from "../db";
+import { RealmApp } from "./App";
 import Downshift from "downshift";
 import { debounce } from "lodash";
 import ReactMarkdown from "react-markdown";
-import vscode from "vscode";
-import {
-  generateProjectStructure,
-  getAutoCompleteSuggestions,
-  getElementDetails,
-} from "../codeParser";
+
+type EventData = {
+  command: string;
+  message: string;
+  results?: { name: string; filePath: string }[];
+  details?: { type: string; name: string; code: string };
+  filePath?: string;
+  projectStructure?: string;
+};
 
 /**
  * ChatDetails component is responsible for displaying the chat details of a specific session.
@@ -30,87 +35,64 @@ export function ChatDetails() {
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
   const handleInputChange = debounce(
-    async (event: React.ChangeEvent<HTMLInputElement>) => {
+    (event: React.ChangeEvent<HTMLInputElement>) => {
       setInputValue(event.target.value);
-      const workspaceRootPath = vscode.workspace.workspaceFolders
-        ? vscode.workspace.workspaceFolders[0].uri.fsPath
-        : undefined;
-      if (workspaceRootPath) {
-        const results = await getAutoCompleteSuggestions(
-          workspaceRootPath,
-          event.target.value
-        );
-        setSuggestions(results);
-      }
+      window.parent.postMessage(
+        {
+          command: "getAutoCompleteSuggestions",
+          inputValue: event.target.value,
+        },
+        "*"
+      );
     },
     300
   );
 
-  /**
-   * This function is called when the user selects a file from the dropdown list.
-   * It updates the input value with the selected file path.
-   */
-  const handleSelect = async (
+  const handleSelect = (
     selectedItem: { name: string; filePath: string } | null
   ) => {
     if (selectedItem) {
-      const details = await getElementDetails(
-        selectedItem.name,
-        selectedItem.filePath
+      window.parent.postMessage(
+        {
+          command: "getElementDetails",
+          name: selectedItem.name,
+          filePath: selectedItem.filePath,
+        },
+        "*"
       );
-      if (details) {
-        setInputValue(
-          `${inputValue}\n${details.type}: ${details.name}\n${details.code}`
-        );
-      } else {
-        setInputValue(selectedItem.filePath);
-      }
     }
   };
 
-  /**
-   * This function is called when the user selects a file from the dropdown list.
-   * It updates the input value with the selected file path.
-   */
-  const handleSendMessage = async () => {
+  const handleSendMessage = () => {
     setIsSending(true);
-    // If this is the first message, send the project structure to the AI
     if (details.length === 0) {
-      // Get the workspace root path
-      const workspaceRootPath = vscode.workspace.workspaceFolders
-        ? vscode.workspace.workspaceFolders[0].uri.fsPath
-        : undefined;
-      if (workspaceRootPath) {
-        const projectStructure = generateProjectStructure(workspaceRootPath, 1);
-        // Send the project structure to the extension
-        window.parent.postMessage(
-          {
-            command: "sendMessageToAI",
-            message: projectStructure,
-          },
-          "*"
-        );
-      }
+      window.parent.postMessage(
+        {
+          command: "generateProjectStructure",
+          depth: 1,
+        },
+        "*"
+      );
+    } else {
+      window.parent.postMessage(
+        {
+          command: "sendMessageToAI",
+          message: inputValue,
+        },
+        "*"
+      );
     }
-    // Send a message to the extension
-    window.parent.postMessage(
-      {
-        command: "sendMessageToAI",
-        message: inputValue,
-      },
-      "*"
-    );
-  };
-  const fetchDetails = () => {
-    RealmInstance.getInstance().then((realm) => {
-      const detailsFromRealm = realm
-        .objects<ChatDetail>("ChatDetail")
-        .filtered(`sessionId = "${sessionId}"`);
-      setDetails([...detailsFromRealm]);
-      setLoading(false);
-    });
   };
 
+  const fetchDetails = () => {
+    // Replace RealmInstance with RealmApp here
+    RealmApp.currentUser?.functions
+      .fetchChatDetails(sessionId)
+      .then((detailsFromRealm) => {
+        setDetails([...detailsFromRealm]);
+        setLoading(false);
+      });
+  };
   /**
    * This effect is responsible for fetching the chat details when the component mounts.
    */
@@ -124,28 +106,34 @@ export function ChatDetails() {
    */
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
-      const data = event.data as { command: string; message: string };
+      const data = event.data as EventData;
 
-      if (data.command === "aiResponse") {
-        setAiResponses((prevResponses) => [...prevResponses, data.message]);
-        setIsSending(false);
-
-        // Store the AI's response in the ChatDetail Realm object
-        RealmInstance.getInstance()
-          .then((realm) => {
-            realm.write(() => {
-              realm.create(ChatDetail, {
-                sessionId: sessionId,
-                message: data.message,
-                timestamp: new Date(),
-                sender: "ai",
-              });
-            });
-          })
-          .catch((error) => {
-            // Handle any errors that may occur here
-            console.error("An error occurred:", error);
-          });
+      switch (data.command) {
+        case "getAutoCompleteSuggestionsResponse":
+          setSuggestions(data.results || []);
+          break;
+        case "getElementDetailsResponse":
+          if (data.details) {
+            setInputValue(
+              `${inputValue}\n${data.details.type}: ${data.details.name}\n${data.details.code}`
+            );
+          } else {
+            setInputValue(data.filePath || "");
+          }
+          break;
+        case "generateProjectStructureResponse":
+          window.parent.postMessage(
+            {
+              command: "sendMessageToAI",
+              message: data.projectStructure || "",
+            },
+            "*"
+          );
+          break;
+        case "aiResponse":
+          setAiResponses((prevResponses) => [...prevResponses, data.message]);
+          setIsSending(false);
+          break;
       }
     };
 

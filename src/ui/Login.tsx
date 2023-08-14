@@ -15,6 +15,7 @@ export function Login({ onLogin }: LoginProps) {
       try {
         const user = await loginUser(email, password);
         onLogin(user);
+        window.parent.postMessage({ command: "login", user: user }, "*"); // Send postMessage after successful login
       } catch (error) {
         setError("Login failed. Please check your email and password.");
       }

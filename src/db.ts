@@ -1,9 +1,7 @@
-import Realm from "realm";
-import * as os from "os";
+// import Realm from "realm";
 import * as path from "path";
-
-const APP_ID = process.env.REALM_APP_ID as string;
-const app = new Realm.App({ id: APP_ID });
+import { ExtensionContext } from "vscode";
+import * as Realm from "realm";
 
 class ChatSession extends Realm.Object {
   public _id!: Realm.BSON.ObjectId;
@@ -70,29 +68,48 @@ class FileContents extends Realm.Object {
   };
 }
 
-const SCHEMA = [ChatSession, ChatDetail, FileContents];
+class User extends Realm.Object {
+  public _id!: Realm.BSON.ObjectId;
+  email!: string;
+  // Add other user properties as needed
 
-import fs from "fs";
+  static schema = {
+    name: "User",
+    primaryKey: "_id",
+    properties: {
+      _id: { type: "objectId", default: () => new Realm.BSON.ObjectId() },
+      email: "string",
+      // Define other user properties as needed
+    },
+  };
+}
+
+const SCHEMA = [ChatSession, ChatDetail, FileContents, User];
 
 class RealmInstance {
   private static instance: Realm | null = null;
+  private static context: ExtensionContext | null = null; // Added context variable
 
   private constructor() {}
 
-  static async getInstance(): Promise<Realm> {
-    if (!RealmInstance.instance) {
-      const realmPath = path.join(os.homedir(), ".myapp", "realm");
+  static initialize(context: ExtensionContext) {
+    RealmInstance.context = context; // Store the context for later use
+  }
 
-      // Make sure the directory exists
-      if (!fs.existsSync(path.dirname(realmPath))) {
-        fs.mkdirSync(path.dirname(realmPath), { recursive: true });
-      }
+  static async getInstance(): Promise<Realm> {
+    if (RealmInstance.context === null) {
+      throw new Error("RealmInstance has not been initialized with context");
+    }
+
+    if (!RealmInstance.instance) {
+      const realmPath = path.join(
+        RealmInstance.context.globalStorageUri.fsPath
+      );
 
       // Open the realm asynchronously and store the result in the instance field
       RealmInstance.instance = await Realm.open({
         path: realmPath,
         schema: SCHEMA,
-        inMemory: true,
       });
     }
 
@@ -101,4 +118,4 @@ class RealmInstance {
   }
 }
 
-export { ChatSession, ChatDetail, FileContents, RealmInstance, app };
+export { ChatSession, ChatDetail, FileContents, RealmInstance };

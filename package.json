@@ -9,14 +9,14 @@
   "categories": [
     "Other"
   ],
-  "main": "./out/extension.js",
+  "main": "./dist/extension.js",
   "contributes": {
     "viewsContainers": {
       "activitybar": [
         {
           "id": "decodeVscodeContainer",
           "title": "Decode VSCode",
-          "icon": "media/icon.svg"
+          "icon": "assets/binary.png"
         }
       ]
     },
@@ -30,7 +30,11 @@
     },
     "commands": [
       {
-        "command": "decode-vscode.login",
+        "command": "decode-vs-code.openSidebar",
+        "title": "Open Sidebar"
+      },
+      {
+        "command": "decode-vs-code.login",
         "title": "Login"
       }
     ]
@@ -52,7 +56,7 @@
     "@types/glob": "^8.1.0",
     "@types/lodash": "^4.14.196",
     "@types/mocha": "^10.0.1",
-    "@types/node": "20.2.5",
+    "@types/node": "^20.2.5",
     "@types/react": "^18.2.18",
     "@types/react-syntax-highlighter": "^15.5.7",
     "@types/uuid": "^9.0.2",
@@ -71,16 +75,20 @@
   "dependencies": {
     "@babel/parser": "^7.22.10",
     "@babel/traverse": "^7.22.10",
+    "abort-controller": "^3.0.0",
     "dotenv": "^16.3.1",
     "downshift": "^8.1.0",
     "lodash": "^4.17.21",
+    "mongodb-client-encryption": "^2.9.0",
     "node-fetch": "^3.3.2",
+    "path-browserify": "^1.0.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-markdown": "^8.0.7",
     "react-router-dom": "^6.14.2",
     "react-syntax-highlighter": "^15.5.0",
-    "realm": "^11.10.1",
+    "realm": "^11.10.2",
+    "realm-web": "^2.0.0",
     "uuid": "^9.0.0"
   }
 }

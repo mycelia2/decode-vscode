@@ -1,13 +1,16 @@
 {
-	"folders": [
-		{
-			"path": "../../decode-backend"
-		},
-		{
-			"path": ".."
-		}
-	],
-	"settings": {
-		"typescript.tsc.autoDetect": "off"
-	}
+  "folders": [
+    {
+      "path": "../../decode-backend"
+    },
+    {
+      "path": ".."
+    },
+    {
+      "path": "../../../Downloads/decode-react_client_20230810061159"
+    }
+  ],
+  "settings": {
+    "typescript.tsc.autoDetect": "off"
+  }
 }

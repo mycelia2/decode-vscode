@@ -1,4 +1,4 @@
-import { app } from "./db";
+import { RealmApp } from "./ui/App";
 
 export async function loginUser(
   email: string,
@@ -6,8 +6,8 @@ export async function loginUser(
 ): Promise<any | null> {
   try {
     const credentials = Realm.Credentials.emailPassword(email, password);
-    const user = await app.logIn(credentials);
-    return user;
+    const user = await RealmApp.logIn(credentials);
+    return { _id: user.id, email: user.profile.email }; // Return more user information
   } catch (error) {
     console.error("Login failed:", error);
     return null;
@@ -15,11 +15,11 @@ export async function loginUser(
 }
 
 export function getCurrentUser() {
-  return app.currentUser;
+  return RealmApp.currentUser;
 }
 
 export async function logoutUser() {
-  if (app.currentUser) {
-    await app.currentUser.logOut();
+  if (RealmApp.currentUser) {
+    await RealmApp.currentUser.logOut();
   }
 }
