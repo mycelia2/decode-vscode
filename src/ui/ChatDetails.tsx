@@ -1,7 +1,6 @@
 import * as React from "react";
 import { useEffect, useState, useRef } from "react";
 import { useParams } from "react-router-dom";
-import { ChatDetail } from "../db";
 import { RealmApp } from "./App";
 import Downshift from "downshift";
 import { debounce } from "lodash";
@@ -14,6 +13,14 @@ type EventData = {
   details?: { type: string; name: string; code: string };
   filePath?: string;
   projectStructure?: string;
+};
+
+type ChatDetail = {
+  _id: string; // you might need to replace this with the appropriate type for ObjectId if you're using a specific library
+  sessionId: string;
+  message: string;
+  timestamp: Date;
+  sender: string;
 };
 
 /**
@@ -85,14 +92,16 @@ export function ChatDetails() {
   };
 
   const fetchDetails = () => {
-    // Replace RealmInstance with RealmApp here
-    RealmApp.currentUser?.functions
-      .fetchChatDetails(sessionId)
-      .then((detailsFromRealm) => {
-        setDetails([...detailsFromRealm]);
-        setLoading(false);
-      });
+    // Send a message to the extension's main code to fetch the chat details
+    window.parent.postMessage(
+      {
+        command: "fetchChatDetails",
+        sessionId: sessionId,
+      },
+      "*"
+    );
   };
+
   /**
    * This effect is responsible for fetching the chat details when the component mounts.
    */
@@ -133,6 +142,20 @@ export function ChatDetails() {
         case "aiResponse":
           setAiResponses((prevResponses) => [...prevResponses, data.message]);
           setIsSending(false);
+          break;
+        case "fetchChatDetailsResponse":
+          if (data.details && sessionId) {
+            // setDetails([
+            //   {
+            //     _id: new Realm.BSON.ObjectId(),
+            //     sessionId: sessionId,
+            //     message: data.details.code,
+            //     timestamp: new Date(),
+            //     sender: "ai",
+            //   },
+            // ]);
+          }
+          setLoading(false);
           break;
       }
     };

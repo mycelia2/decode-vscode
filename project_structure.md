@@ -7,7 +7,6 @@ decode-vscode/
 │ ├── fileParser.ts # Handles parsing and storing file contents using ESLint and Realm
 │ ├── ui/ # Directory for React components used in the user interface
 │ │ ├── App.tsx # Main component for the application
-│ │ ├── ChatSessions.tsx # Component for displaying chat sessions
 │ │ ├── ChatDetails.tsx # Component for displaying chat details
 │ │ └── Login.tsx # Component for the login functionality
 │ ├── webview.html # HTML template for the webview panel used in the extension

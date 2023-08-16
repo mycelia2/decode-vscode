@@ -1,4 +1,4 @@
-import { RealmApp } from "./ui/App";
+import { RealmApp } from "./App";
 
 export async function loginUser(
   email: string,

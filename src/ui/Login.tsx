@@ -1,5 +1,5 @@
 import * as React from "react";
-import { loginUser } from "../auth";
+import { loginUser } from "./auth";
 
 interface LoginProps {
   onLogin: (user: any) => void;

@@ -6,6 +6,7 @@
   "engines": {
     "vscode": "^1.81.0"
   },
+  "publisher": "your-publisher-name",
   "categories": [
     "Other"
   ],
@@ -28,16 +29,16 @@
         }
       ]
     },
-  "commands": [
-    {
-      "command": "decode-vs-code.openChatDetails",
-      "title": "Open Chat Details"
-    },
-    {
-      "command": "decode-vs-code.createChatSession",
-      "title": "Create Chat Session"
-    }
-  ]
+    "commands": [
+      {
+        "command": "decode-vs-code.openChatDetails",
+        "title": "Open Chat Details"
+      },
+      {
+        "command": "decode-vs-code.createChatSession",
+        "title": "Create Chat Session"
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
@@ -80,8 +81,10 @@
     "downshift": "^8.1.0",
     "lodash": "^4.17.21",
     "mongodb-client-encryption": "^2.9.0",
+    "mongoose": "^7.4.3",
     "node-fetch": "^3.3.2",
     "path-browserify": "^1.0.1",
+    "prop-types": "^15.8.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-markdown": "^8.0.7",

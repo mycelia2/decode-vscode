@@ -9,8 +9,9 @@ const extensionConfig = {
     libraryTarget: 'commonjs2',
   },
   resolve: {
-    extensions: ['.ts', '.tsx', '.js', '.jsx'],
+    extensions: ['.ts', '.js'],
   },
+
   module: {
     rules: [
       {
@@ -33,13 +34,13 @@ const extensionConfig = {
 
 // Configuration for the React UI
 const uiConfig = {
-  entry: './src/ui/App.tsx', // Adjust the entry point to the main React component
+  entry: './src/ui/App.tsx',
   output: {
     path: path.resolve(__dirname, 'dist'),
     filename: 'bundle.js',
   },
   resolve: {
-    extensions: ['.ts', '.tsx', '.js', '.jsx'],
+    extensions: ['.tsx', '.jsx', '.js'],
     fallback: {
         "path": require.resolve("path-browserify")
     },
@@ -47,7 +48,7 @@ const uiConfig = {
   module: {
     rules: [
       {
-        test: /\.(ts|js)x?$/,
+        test: /\.(tsx|jsx)x?$/,
         exclude: /node_modules/,
         use: {
           loader: 'babel-loader',
@@ -58,7 +59,7 @@ const uiConfig = {
       },
     ],
   },
-  target: 'web', // Targeting browsers for the UI
+  target: 'web',
 };
 
-module.exports = [extensionConfig, uiConfig]; // Export both configurations
+module.exports = [extensionConfig, uiConfig]; 

@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import * as fs from "fs";
-import { RealmInstance, ChatSession } from "./db";
+import { MongooseInstance, ChatSession, ChatDetail, IChatSession } from "./db";
 import {
   generateProjectStructure,
   getAutoCompleteSuggestions,
@@ -60,7 +60,6 @@ class TreeViewProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
 
 export async function activate(context: vscode.ExtensionContext) {
   try {
-    RealmInstance.initialize(context);
     context.globalState.update("userId", null);
 
     const treeViewProvider = new TreeViewProvider(context);
@@ -93,7 +92,7 @@ export async function activate(context: vscode.ExtensionContext) {
         // Get the content of webview.html and replace the bundle.js src with the URI
         const webviewHtml = fs
           .readFileSync(
-            path.join(context.extensionPath, "webview.html"),
+            path.join(context.extensionPath, "src", "webview.html"),
             "utf-8"
           )
           .replace(
@@ -148,6 +147,18 @@ export async function activate(context: vscode.ExtensionContext) {
               );
               panel.webview.postMessage({ command: "elementDetails", details });
               break;
+            case "fetchChatDetails":
+              MongooseInstance.getInstance()
+                .then(() => {
+                  return ChatDetail.find({ sessionId: message.sessionId });
+                })
+                .then((details) => {
+                  panel.webview.postMessage({
+                    command: "fetchChatDetailsResponse",
+                    details,
+                  });
+                });
+              break;
             // Handle other commands as needed
           }
         });
@@ -187,25 +198,22 @@ export function deactivate() {
   // Clean up any resources if needed
 }
 
-async function fetchChatSessions(userId: string): Promise<ChatSession[]> {
-  const realm = await RealmInstance.getInstance();
-  const chatSessions = realm
-    .objects<ChatSession>("ChatSession")
-    .filtered(`userId = "${userId}"`);
-  return Array.from(chatSessions);
+async function fetchChatSessions(userId: string): Promise<IChatSession[]> {
+  const mongoose = await MongooseInstance.getInstance();
+  const chatSessions = await ChatSession.find({ userId });
+  return chatSessions;
 }
 
 async function createChatSession(userId: string): Promise<void> {
-  const realm = await RealmInstance.getInstance();
-  realm.write(() => {
-    realm.create<ChatSession>("ChatSession", {
-      userId,
-      startTime: new Date(),
-      lastMessagePreview: "",
-      status: "active",
-      unreadCount: 0,
-    });
+  const mongoose = await MongooseInstance.getInstance();
+  const chatSession = new ChatSession({
+    userId,
+    startTime: new Date(),
+    lastMessagePreview: "",
+    status: "active",
+    unreadCount: 0,
   });
+  await chatSession.save();
 }
 
 async function sendMessageToAI(message: string) {

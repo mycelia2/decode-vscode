@@ -1,121 +1,106 @@
-// import Realm from "realm";
-import * as path from "path";
 import { ExtensionContext } from "vscode";
-import * as Realm from "realm";
+import mongoose, { Document, Schema } from "mongoose";
+import * as dotenv from "dotenv";
 
-class ChatSession extends Realm.Object {
-  public _id!: Realm.BSON.ObjectId;
-  userId!: string;
-  startTime!: Date;
-  lastMessagePreview!: string;
-  status: string = "active";
-  unreadCount: number = 0;
+dotenv.config();
 
-  static schema = {
-    name: "ChatSession",
-    primaryKey: "_id",
-    properties: {
-      _id: { type: "objectId", default: () => new Realm.BSON.ObjectId() },
-      userId: "string",
-      startTime: "date",
-      lastMessagePreview: "string",
-      status: { type: "string", default: "active" },
-      unreadCount: { type: "int", default: 0 },
-      chatDetails: { type: "list", objectType: "ChatDetail" },
-    },
-  };
+// Now you can access process.env.MONGODB_URI
+
+// Interfaces
+
+export interface IChatSession extends Document {
+  userId: string;
+  startTime: Date;
+  lastMessagePreview: string;
+  status: string;
+  unreadCount: number;
 }
 
-class ChatDetail extends Realm.Object {
-  public _id!: Realm.BSON.ObjectId;
-  sessionId!: string;
-  message!: string;
-  timestamp!: Date;
-  sender!: "user" | "ai";
-
-  static schema = {
-    name: "ChatDetail",
-    primaryKey: "_id",
-    properties: {
-      _id: { type: "objectId", default: () => new Realm.BSON.ObjectId() },
-      sessionId: "string",
-      message: "string",
-      timestamp: "date",
-      sender: { type: "string", enum: ["user", "ai"] },
-    },
-  };
+export interface IChatDetail extends Document {
+  sessionId: string;
+  message: string;
+  timestamp: Date;
+  sender: "user" | "ai";
 }
 
-class FileContents extends Realm.Object {
-  public _id!: Realm.BSON.ObjectId;
-  filePath!: string;
-  classes!: string[];
-  functions!: string[];
-  modules!: string[];
-  variables!: string[];
-
-  static schema = {
-    name: "FileContents",
-    primaryKey: "_id",
-    properties: {
-      _id: { type: "objectId", default: () => new Realm.BSON.ObjectId() },
-      filePath: "string",
-      classes: "string[]",
-      functions: "string[]",
-      modules: "string[]",
-      variables: "string[]",
-    },
-  };
+export interface IFileContents extends Document {
+  filePath: string;
+  classes: string[];
+  functions: string[];
+  modules: string[];
+  variables: string[];
 }
 
-class User extends Realm.Object {
-  public _id!: Realm.BSON.ObjectId;
-  email!: string;
-  // Add other user properties as needed
-
-  static schema = {
-    name: "User",
-    primaryKey: "_id",
-    properties: {
-      _id: { type: "objectId", default: () => new Realm.BSON.ObjectId() },
-      email: "string",
-      // Define other user properties as needed
-    },
-  };
+export interface IUser extends Document {
+  email: string;
 }
 
-const SCHEMA = [ChatSession, ChatDetail, FileContents, User];
+// Schemas
 
-class RealmInstance {
-  private static instance: Realm | null = null;
-  private static context: ExtensionContext | null = null; // Added context variable
+const ChatSessionSchema = new Schema<IChatSession>({
+  userId: String,
+  startTime: Date,
+  lastMessagePreview: String,
+  status: { type: String, default: "active" },
+  unreadCount: { type: Number, default: 0 },
+});
+
+const ChatDetailSchema = new Schema<IChatDetail>({
+  sessionId: String,
+  message: String,
+  timestamp: Date,
+  sender: { type: String, enum: ["user", "ai"] },
+});
+
+const FileContentsSchema = new Schema<IFileContents>({
+  filePath: String,
+  classes: [String],
+  functions: [String],
+  modules: [String],
+  variables: [String],
+});
+
+const UserSchema = new Schema<IUser>({
+  email: String,
+});
+
+// Models
+
+const ChatSession = mongoose.model<IChatSession>(
+  "ChatSession",
+  ChatSessionSchema
+);
+const ChatDetail = mongoose.model<IChatDetail>("ChatDetail", ChatDetailSchema);
+const FileContents = mongoose.model<IFileContents>(
+  "FileContents",
+  FileContentsSchema
+);
+const User = mongoose.model<IUser>("User", UserSchema);
+
+// Mongoose Singleton Instance
+
+class MongooseInstance {
+  private static instance: typeof mongoose | null = null;
 
   private constructor() {}
 
-  static initialize(context: ExtensionContext) {
-    RealmInstance.context = context; // Store the context for later use
-  }
+  static async getInstance(): Promise<typeof mongoose> {
+    if (!MongooseInstance.instance) {
+      const connectionString = process.env.MONGODB_URI;
 
-  static async getInstance(): Promise<Realm> {
-    if (RealmInstance.context === null) {
-      throw new Error("RealmInstance has not been initialized with context");
+      if (!connectionString) {
+        throw new Error(
+          "No MongoDB connection string provided in environment variables"
+        );
+      }
+
+      MongooseInstance.instance = await mongoose.connect(connectionString);
     }
 
-    if (!RealmInstance.instance) {
-      const realmPath = path.join(
-        RealmInstance.context.globalStorageUri.fsPath
-      );
-
-      // Open the realm asynchronously and store the result in the instance field
-      RealmInstance.instance = await Realm.open({
-        path: realmPath,
-        schema: SCHEMA,
-      });
-    }
-
-    // Since instance is now guaranteed to be set, we can return it directly
-    return RealmInstance.instance;
+    return MongooseInstance.instance;
   }
 }
 
-export { ChatSession, ChatDetail, FileContents, RealmInstance };
+// Exports
+
+export { ChatSession, ChatDetail, FileContents, User, MongooseInstance };
