@@ -1,11 +1,12 @@
 import { RealmApp } from "./App";
+import * as RealmWeb from "realm-web";
 
 export async function loginUser(
   email: string,
   password: string
 ): Promise<any | null> {
   try {
-    const credentials = Realm.Credentials.emailPassword(email, password);
+    const credentials = RealmWeb.Credentials.emailPassword(email, password);
     const user = await RealmApp.logIn(credentials);
     return { _id: user.id, email: user.profile.email }; // Return more user information
   } catch (error) {

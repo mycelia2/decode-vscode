@@ -15,3 +15,4 @@ decode-vscode/
 ├── tsconfig.json # TypeScript compiler options
 ├── README.md # Documentation and information about the extension
 └── webpack.config.js # Webpack configuration for bundling the extension
+└── .env

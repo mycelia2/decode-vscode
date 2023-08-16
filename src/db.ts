@@ -1,10 +1,9 @@
 import { ExtensionContext } from "vscode";
 import mongoose, { Document, Schema } from "mongoose";
 import * as dotenv from "dotenv";
+import * as path from "path";
 
-dotenv.config();
-
-// Now you can access process.env.MONGODB_URI
+dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
 // Interfaces
 
@@ -33,6 +32,7 @@ export interface IFileContents extends Document {
 
 export interface IUser extends Document {
   email: string;
+  id: string;
 }
 
 // Schemas

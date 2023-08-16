@@ -34,16 +34,13 @@ const extensionConfig = {
 
 // Configuration for the React UI
 const uiConfig = {
-  entry: './src/ui/App.tsx',
+  entry: './src/ui/main.tsx',
   output: {
     path: path.resolve(__dirname, 'dist'),
     filename: 'bundle.js',
   },
   resolve: {
     extensions: ['.tsx', '.jsx', '.js'],
-    fallback: {
-        "path": require.resolve("path-browserify")
-    },
   },
   module: {
     rules: [

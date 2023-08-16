@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useState, useEffect } from "react";
-import { BrowserRouter as Router, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Login } from "./Login";
 import { ChatDetails } from "./ChatDetails";
 import * as RealmWeb from "realm-web";
@@ -22,22 +22,39 @@ export const RealmApp = new RealmWeb.App({
 });
 
 export function App() {
-  // Declare a state to store the current user from Realm
-  const [currentUser, setCurrentUser] = useState(RealmApp.currentUser);
+  const [currentUser, setCurrentUser] = useState(null);
 
   useEffect(() => {
-    // Set up any necessary listeners or additional logic here, if required
+    const handleMessage = (event: MessageEvent) => {
+      const data = event.data as any;
+      console.log("Setting current user in App.tsx", data.currentUser);
+      if (data.currentUser) {
+        setCurrentUser(data.currentUser);
+      }
+    };
+
+    window.addEventListener("message", handleMessage);
+
+    return () => {
+      window.removeEventListener("message", handleMessage);
+    };
   }, []);
 
+  useEffect(() => {
+    console.log("currentUser in App:", currentUser);
+  }, [currentUser]);
+
   return (
-    <Router>
-      <Route path="/login">
-        <Login onLogin={setCurrentUser} />
-      </Route>
-      <Route path="/details/:sessionId">
-        {currentUser ? <ChatDetails /> : <Navigate to="/login" />}
-      </Route>
-      <Navigate to="/login" /> {/* Default navigation */}
-    </Router>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/login" element={<Login onLogin={setCurrentUser} />} />
+        <Route
+          path="/details/:sessionId"
+          element={currentUser ? <ChatDetails /> : <Navigate to="/login" />}
+        />
+        <Route path="*" element={<Navigate to="/login" />} />{" "}
+        {/* Default navigation */}
+      </Routes>
+    </BrowserRouter>
   );
 }
