@@ -1,9 +1,6 @@
 import * as React from "react";
 import { loginUser } from "./auth";
-
-interface LoginProps {
-  onLogin: (user: any) => void;
-}
+import { UserContext } from "./App"; // Import the context
 
 interface VsCodeWebviewApi {
   postMessage: (message: any) => void;
@@ -15,8 +12,18 @@ declare global {
     vscode: VsCodeWebviewApi;
   }
 }
-export function Login({ onLogin }: LoginProps) {
-  console.log("Enetered Login function");
+
+export function Login() {
+  // Removed the props
+  const userContext = React.useContext(UserContext); // Access the context
+
+  if (!userContext) {
+    return null;
+  } // Optional: handle the case when context is not available
+
+  const { setCurrentUser } = userContext; // Destructure the setCurrentUser method
+
+  console.log("Entered Login function");
   const [email, setEmail] = React.useState<string>("");
   const [password, setPassword] = React.useState<string>("");
   const [error, setError] = React.useState<string>("");
@@ -25,13 +32,12 @@ export function Login({ onLogin }: LoginProps) {
     if (email && password) {
       try {
         const user = await loginUser(email, password);
-        console.log("User after login:", user); // Logging the user
-        onLogin(user);
+        setCurrentUser(user);
         if (window.vscode) {
           window.vscode.postMessage({ command: "login", user: user });
         }
       } catch (error) {
-        console.error("Error during login:", error); // Logging the actual error
+        console.error("Error during login:", error);
         setError("Login failed. Please check your email and password.");
       }
     } else {

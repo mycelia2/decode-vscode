@@ -15,10 +15,12 @@ export async function createChatSession(
 ): Promise<void> {
   try {
     const mongoose = await MongooseInstance.getInstance();
-    const currentUser = context.globalState.get("currentUser") as IUser;
+    const currentUser = context.globalState.get("currentUser");
+
+    console.log("Create chat session: Current user:", currentUser);
 
     const chatSession = new ChatSession({
-      userId: currentUser.id,
+      userId: "64dca52fb30617e8e131ad6b",
       startTime: new Date(),
       lastMessagePreview: "",
       status: "active",
@@ -42,6 +44,7 @@ export async function createChatSession(
     panel.webview.postMessage({
       command: "initialize",
       sessionId: chatSession._id, // Send the ID of the new chat session
+      currentUser: currentUser,
     });
 
     // Handle messages from the webview

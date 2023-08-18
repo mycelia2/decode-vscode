@@ -90,6 +90,14 @@ export async function activate(context: vscode.ExtensionContext) {
     );
 
     context.subscriptions.push(refreshTreeViewDisposable);
+
+    let logoutDisposable = vscode.commands.registerCommand(
+      "decode-vs-code.logout",
+      () => {
+        logout(context, treeViewProvider);
+      }
+    );
+    context.subscriptions.push(logoutDisposable);
   } catch (error) {
     if (error instanceof Error) {
       console.error(`Failed to activate the extension: ${error.message}`);
@@ -123,4 +131,15 @@ async function sendMessageToAI(message: string) {
   }
 
   return await response.json();
+}
+
+export function logout(
+  context: vscode.ExtensionContext,
+  treeViewProvider: TreeViewProvider
+) {
+  // Reset the user-related global state
+  context.globalState.update("currentUser", undefined);
+
+  // Refresh the tree view to show the login button
+  treeViewProvider.refresh();
 }

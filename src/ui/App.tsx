@@ -1,35 +1,55 @@
 import * as React from "react";
 import { useState, useEffect } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  useNavigate,
+} from "react-router-dom";
 import { Login } from "./Login";
 import { ChatDetails } from "./ChatDetails";
 import * as RealmWeb from "realm-web";
 
-const atlasConfig = {
-  appId: "decode-react-igbny",
-  appUrl:
-    "https://realm.mongodb.com/groups/64d473fe8861ca14d4f95cf1/apps/64d47e50c353697e8ac0731e",
-  baseUrl: "https://realm.mongodb.com",
-  clientApiBaseUrl: "https://us-west-2.aws.realm.mongodb.com",
-  dataApiBaseUrl: "https://us-west-2.aws.data.mongodb-api.com",
-  dataExplorerLink:
-    "https://cloud.mongodb.com/links/64d473fe8861ca14d4f95cf1/explorer/AtlasCluster/database/collection/find",
-  dataSourceName: "mongodb-atlas",
-};
+// Update this later using build process
+// const realmAppId = process.env.REALM_APP_ID;
+
+// if (!realmAppId) {
+//   throw new Error("No realm app id provided");
+// }
 
 export const RealmApp = new RealmWeb.App({
-  id: atlasConfig["appId"],
+  id: "decode-react-igbny",
 });
 
-export function App() {
-  const [currentUser, setCurrentUser] = useState(null);
+// Create a context to share the user's state
+interface UserContextType {
+  currentUser: any; // Define the type for currentUser based on your data model
+  setCurrentUser: React.Dispatch<React.SetStateAction<any>>;
+}
+
+export const UserContext = React.createContext<UserContextType | null>(null);
+
+function UserAuthHandler() {
+  const userContext = React.useContext(UserContext);
+  const navigate = useNavigate();
+
+  if (!userContext) {
+    return null;
+  }
+
+  const { setCurrentUser } = userContext;
 
   useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
+    const handleMessage = async (event: MessageEvent) => {
       const data = event.data as any;
-      console.log("Setting current user in App.tsx", data.currentUser);
       if (data.currentUser) {
-        setCurrentUser(data.currentUser);
+        const credentials = RealmWeb.Credentials.apiKey(
+          data.currentUser.apiKey.key
+        );
+        const user = await RealmApp.logIn(credentials);
+        setCurrentUser(user);
+        navigate(`/details/${user.id}`);
       }
     };
 
@@ -38,23 +58,27 @@ export function App() {
     return () => {
       window.removeEventListener("message", handleMessage);
     };
-  }, []);
+  }, [navigate, setCurrentUser]);
 
-  useEffect(() => {
-    console.log("currentUser in App:", currentUser);
-  }, [currentUser]);
+  return null;
+}
+
+export function App() {
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={<Login onLogin={setCurrentUser} />} />
-        <Route
-          path="/details/:sessionId"
-          element={currentUser ? <ChatDetails /> : <Navigate to="/login" />}
-        />
-        <Route path="*" element={<Navigate to="/login" />} />{" "}
-        {/* Default navigation */}
-      </Routes>
-    </BrowserRouter>
+    <UserContext.Provider value={{ currentUser, setCurrentUser }}>
+      <BrowserRouter>
+        <UserAuthHandler />
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route
+            path="/details/:sessionId"
+            element={currentUser ? <ChatDetails /> : <Navigate to="/login" />}
+          />
+          <Route path="*" element={<Navigate to="/login" />} />
+        </Routes>
+      </BrowserRouter>
+    </UserContext.Provider>
   );
 }

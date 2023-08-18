@@ -43,6 +43,7 @@ export function handleWebviewMessage(
     case "login":
       const user = message.user;
       context.globalState.update("currentUser", user);
+      context.globalState.update("userApiKey", user.apiKey);
       vscode.commands.executeCommand("decode-vs-code.refreshTreeView");
       break;
     case "generateProjectStructure":

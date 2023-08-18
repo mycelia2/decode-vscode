@@ -2,6 +2,7 @@ import * as React from "react";
 import { useEffect, useState, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { RealmApp } from "./App";
+
 import Downshift from "downshift";
 import { debounce } from "lodash";
 import ReactMarkdown from "react-markdown";
@@ -16,19 +17,13 @@ type EventData = {
 };
 
 type ChatDetail = {
-  _id: string; // you might need to replace this with the appropriate type for ObjectId if you're using a specific library
+  _id: string;
   sessionId: string;
   message: string;
   timestamp: Date;
   sender: string;
 };
 
-/**
- * ChatDetails component is responsible for displaying the chat details of a specific session.
- * It also provides a search functionality to search for files based on their content.
- * The search results are displayed in a dropdown list.
- * The user can select a file from the dropdown list and send its path as a message to the AI.
- */
 export function ChatDetails() {
   const { sessionId } = useParams<string>();
   const [details, setDetails] = useState<ChatDetail[]>([]);
@@ -91,85 +86,38 @@ export function ChatDetails() {
     }
   };
 
-  const fetchDetails = () => {
-    // Send a message to the extension's main code to fetch the chat details
-    window.parent.postMessage(
-      {
-        command: "fetchChatDetails",
-        sessionId: sessionId,
-      },
-      "*"
-    );
-  };
-
-  /**
-   * This effect is responsible for fetching the chat details when the component mounts.
-   */
   useEffect(() => {
-    fetchDetails();
-  }, [sessionId]);
+    const fetchDetails = async () => {
+      // Fetch the chat details from MongoDB using Realm
 
-  /**
-   * This effect is responsible for handling the messages received from the extension.
-   * When a message is received, it updates the aiResponses state with the AI's response.
-   */
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      const data = event.data as EventData;
+      const mongodb = RealmApp.currentUser?.mongoClient("mongodb-atlas");
 
-      switch (data.command) {
-        case "getAutoCompleteSuggestionsResponse":
-          setSuggestions(data.results || []);
-          break;
-        case "getElementDetailsResponse":
-          if (data.details) {
-            setInputValue(
-              `${inputValue}\n${data.details.type}: ${data.details.name}\n${data.details.code}`
-            );
-          } else {
-            setInputValue(data.filePath || "");
-          }
-          break;
-        case "generateProjectStructureResponse":
-          window.parent.postMessage(
-            {
-              command: "sendMessageToAI",
-              message: data.projectStructure || "",
-            },
-            "*"
-          );
-          break;
-        case "aiResponse":
-          setAiResponses((prevResponses) => [...prevResponses, data.message]);
-          setIsSending(false);
-          break;
-        case "fetchChatDetailsResponse":
-          if (data.details && sessionId) {
-            // setDetails([
-            //   {
-            //     _id: new Realm.BSON.ObjectId(),
-            //     sessionId: sessionId,
-            //     message: data.details.code,
-            //     timestamp: new Date(),
-            //     sender: "ai",
-            //   },
-            // ]);
-          }
-          setLoading(false);
-          break;
+      const chatDetailsCollection = mongodb
+        ?.db("decode")
+        .collection("chatdetails");
+
+      const changeStream = chatDetailsCollection?.watch({
+        filter: { "fullDocument.sessionId": sessionId },
+      });
+
+      if (!changeStream) {
+        throw new Error("Failed to initialize change stream");
+      }
+
+      for await (const change of changeStream) {
+        // Handle the change event
+        if (change.operationType === "insert") {
+          setAiResponses((prevResponses) => [
+            ...prevResponses,
+            change.fullDocument.message,
+          ]);
+        }
       }
     };
 
-    window.addEventListener("message", handleMessage);
+    fetchDetails();
+  }, [sessionId]);
 
-    return () => {
-      window.removeEventListener("message", handleMessage);
-    };
-  }, []);
-
-  /**
-   * This effect is responsible for scrolling the chat container to the bottom whenever a new message is added.
-   */
   useEffect(() => {
     chatContainerRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [details, aiResponses]);

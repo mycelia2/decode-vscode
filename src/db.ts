@@ -8,7 +8,7 @@ dotenv.config({ path: path.resolve(__dirname, "../.env") });
 // Interfaces
 
 export interface IChatSession extends Document {
-  userId: string;
+  userId: mongoose.Types.ObjectId;
   startTime: Date;
   lastMessagePreview: string;
   status: string;
@@ -16,7 +16,7 @@ export interface IChatSession extends Document {
 }
 
 export interface IChatDetail extends Document {
-  sessionId: string;
+  sessionId: mongoose.Types.ObjectId;
   message: string;
   timestamp: Date;
   sender: "user" | "ai";
@@ -32,13 +32,19 @@ export interface IFileContents extends Document {
 
 export interface IUser extends Document {
   email: string;
-  id: string;
+  _id: string;
+  apiKey: {
+    _id: string;
+    key: string;
+    name: string;
+    disabled: boolean;
+  };
 }
 
 // Schemas
 
 const ChatSessionSchema = new Schema<IChatSession>({
-  userId: String,
+  userId: { type: Schema.Types.ObjectId, ref: "User" },
   startTime: Date,
   lastMessagePreview: String,
   status: { type: String, default: "active" },
@@ -46,7 +52,7 @@ const ChatSessionSchema = new Schema<IChatSession>({
 });
 
 const ChatDetailSchema = new Schema<IChatDetail>({
-  sessionId: String,
+  sessionId: { type: Schema.Types.ObjectId, ref: "ChatSession" },
   message: String,
   timestamp: Date,
   sender: { type: String, enum: ["user", "ai"] },
@@ -60,9 +66,9 @@ const FileContentsSchema = new Schema<IFileContents>({
   variables: [String],
 });
 
-const UserSchema = new Schema<IUser>({
-  email: String,
-});
+// const UserSchema = new Schema<IUser>({
+//   email: String,
+// });
 
 // Models
 
@@ -75,7 +81,7 @@ const FileContents = mongoose.model<IFileContents>(
   "FileContents",
   FileContentsSchema
 );
-const User = mongoose.model<IUser>("User", UserSchema);
+// const User = mongoose.model<IUser>("User", UserSchema);
 
 // Mongoose Singleton Instance
 
@@ -103,4 +109,4 @@ class MongooseInstance {
 
 // Exports
 
-export { ChatSession, ChatDetail, FileContents, User, MongooseInstance };
+export { ChatSession, ChatDetail, FileContents, MongooseInstance };

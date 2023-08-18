@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { fetchChatSessions } from "./chatSessionManager";
 import { IUser } from "./db";
+import { logout } from "./extension";
 
 export class TreeViewProvider
   implements vscode.TreeDataProvider<vscode.TreeItem>
@@ -48,6 +49,16 @@ export class TreeViewProvider
 
           // Add the "Create Chat Session" button to the top of the list
           sessionTreeItems.unshift(createChatSessionTreeItem);
+
+          // Create a new TreeItem for the "Logout" button
+          const logoutTreeItem = new vscode.TreeItem("Logout");
+          logoutTreeItem.command = {
+            command: "decode-vs-code.logout", // Use the registered command identifier
+            title: "Logout",
+          };
+
+          // Add the "Logout" button to the list
+          sessionTreeItems.push(logoutTreeItem);
 
           return sessionTreeItems;
         });
