@@ -2,30 +2,22 @@ import * as React from "react";
 import { useEffect, useState, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { RealmApp } from "./App";
-
 import Downshift from "downshift";
 import { debounce } from "lodash";
 import ReactMarkdown from "react-markdown";
-
-type EventData = {
-  command: string;
-  message: string;
-  results?: { name: string; filePath: string }[];
-  details?: { type: string; name: string; code: string };
-  filePath?: string;
-  projectStructure?: string;
-};
+import { VsCodeContext } from "./App";
+import { ObjectId } from "bson";
 
 type ChatDetail = {
-  _id: string;
-  sessionId: string;
+  _id?: ObjectId;
+  sessionId: ObjectId;
   message: string;
   timestamp: Date;
-  sender: string;
+  sender: "user" | "ai";
 };
 
-export function ChatDetails() {
-  const { sessionId } = useParams<string>();
+export function ChatDetails({ sessionId }: { sessionId: string | null }) {
+  const vscode = React.useContext(VsCodeContext);
   const [details, setDetails] = useState<ChatDetail[]>([]);
   const [suggestions, setSuggestions] = useState<
     { name: string; filePath: string }[]
@@ -33,68 +25,140 @@ export function ChatDetails() {
   const [loading, setLoading] = useState(true);
   const [inputValue, setInputValue] = useState("");
   const [aiResponses, setAiResponses] = useState<string[]>([]);
+  const [tempAiResponses, setTempAiResponses] = useState<string[]>([]);
   const [isSending, setIsSending] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
-  const handleInputChange = debounce(
-    (event: React.ChangeEvent<HTMLInputElement>) => {
-      setInputValue(event.target.value);
-      window.parent.postMessage(
-        {
-          command: "getAutoCompleteSuggestions",
-          inputValue: event.target.value,
-        },
-        "*"
-      );
-    },
-    300
-  );
+  if (!vscode) {
+    throw new Error("vscode is not defined");
+  }
+
+  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const value = event.target.value;
+    setInputValue(value);
+
+    const atIndex = value.indexOf("@");
+    if (
+      atIndex !== -1 &&
+      atIndex < value.length - 1 &&
+      value[atIndex + 1] !== " "
+    ) {
+      const fileName = value.slice(atIndex + 1);
+      vscode.postMessage({
+        command: "getAutoCompleteSuggestions",
+        inputValue: fileName,
+      });
+    }
+  };
+
+  const onInputChange = handleInputChange;
 
   const handleSelect = (
     selectedItem: { name: string; filePath: string } | null
   ) => {
     if (selectedItem) {
-      window.parent.postMessage(
-        {
-          command: "getElementDetails",
-          name: selectedItem.name,
-          filePath: selectedItem.filePath,
-        },
-        "*"
-      );
+      vscode.postMessage({
+        command: "getElementDetails",
+        name: selectedItem.name,
+        filePath: selectedItem.filePath,
+      });
     }
   };
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     setIsSending(true);
-    if (details.length === 0) {
-      window.parent.postMessage(
-        {
-          command: "generateProjectStructure",
-          depth: 1,
-        },
-        "*"
-      );
-    } else {
-      window.parent.postMessage(
-        {
-          command: "sendMessageToAI",
-          message: inputValue,
-        },
-        "*"
-      );
+
+    if (sessionId === null) {
+      console.error("Session ID must not be null.");
+      return;
     }
+
+    const chatDetail: ChatDetail = {
+      sessionId: new ObjectId(sessionId), // Convert the sessionId string to an ObjectID
+      message: inputValue,
+      timestamp: new Date(),
+      sender: "user",
+    };
+
+    // Save the chat detail to the Realm database
+    const mongodb = RealmApp.currentUser?.mongoClient("mongodb-atlas");
+    const chatDetailsCollection = mongodb
+      ?.db("decode")
+      .collection("chatdetails");
+    if (!chatDetailsCollection) {
+      console.error("Failed to access chat details collection");
+      return;
+    }
+
+    try {
+      await chatDetailsCollection.insertOne(chatDetail);
+
+      fetch("http://localhost:8000/query", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ sessionId: sessionId, message: inputValue }),
+      })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          const reader = response.body?.getReader();
+          if (!reader) {
+            throw new Error("No reader available");
+          }
+          const decoder = new TextDecoder("utf-8");
+          let aiResponse = "";
+          reader
+            .read()
+            .then(function processText({ done, value }): Promise<void> {
+              if (done) {
+                setIsSending(false);
+                return Promise.resolve();
+              }
+              const chunk = decoder.decode(value);
+              aiResponse += chunk.startsWith("data:") ? chunk.slice(5) : chunk;
+              setTempAiResponses((prevResponses) => [
+                ...prevResponses.slice(0, prevResponses.length - 1),
+                aiResponse,
+              ]);
+              return reader.read().then(processText);
+            });
+        })
+        .catch((error) => {
+          console.error("Failed to send message to AI:", error);
+          setIsSending(false);
+        });
+    } catch (error) {
+      console.error("Failed to insert chat detail:", error);
+      return;
+    }
+
+    // sleep for 2 seconds - TODO: will fix later
+    // await new Promise((resolve) => setTimeout(resolve, 2000));
+
+    // vscode.postMessage({
+    //   command: "generateProjectStructure",
+    //   depth: 1,
+    // });
   };
 
   useEffect(() => {
     const fetchDetails = async () => {
       // Fetch the chat details from MongoDB using Realm
-
       const mongodb = RealmApp.currentUser?.mongoClient("mongodb-atlas");
-
       const chatDetailsCollection = mongodb
         ?.db("decode")
         .collection("chatdetails");
+      const chatDetails = await chatDetailsCollection?.find({ sessionId });
+
+      if (!chatDetails) {
+        throw new Error("Failed to fetch chat details");
+      }
+
+      setDetails(chatDetails);
+      setLoading(false); // Set loading to false after fetching details
 
       const changeStream = chatDetailsCollection?.watch({
         filter: { "fullDocument.sessionId": sessionId },
@@ -111,6 +175,11 @@ export function ChatDetails() {
             ...prevResponses,
             change.fullDocument.message,
           ]);
+          setTempAiResponses((prevResponses) =>
+            prevResponses.filter(
+              (response) => response !== change.fullDocument.message
+            )
+          );
         }
       }
     };
@@ -120,7 +189,7 @@ export function ChatDetails() {
 
   useEffect(() => {
     chatContainerRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [details, aiResponses]);
+  }, [details, aiResponses, tempAiResponses]);
 
   if (loading) {
     return <div>Loading...</div>;
@@ -131,7 +200,7 @@ export function ChatDetails() {
       <div className="chat-container" ref={chatContainerRef}>
         {details.map((detail) => (
           <div
-            key={detail._id.toString()}
+            key={detail._id!.toString()}
             className={`message ${detail.sender}`}
           >
             <ReactMarkdown>{detail.message}</ReactMarkdown>
@@ -139,6 +208,11 @@ export function ChatDetails() {
           </div>
         ))}
         {aiResponses.map((response, index) => (
+          <div key={index} className="message ai">
+            <ReactMarkdown>{response}</ReactMarkdown>
+          </div>
+        ))}
+        {tempAiResponses.map((response, index) => (
           <div key={index} className="message ai">
             <ReactMarkdown>{response}</ReactMarkdown>
           </div>
@@ -156,7 +230,12 @@ export function ChatDetails() {
         }) => (
           <div>
             <label {...getLabelProps()}>Start typing</label>
-            <input {...getInputProps({ onChange: handleInputChange })} />
+            <input
+              {...getInputProps({
+                onChange: onInputChange,
+                value: inputValue,
+              })}
+            />
             <ul {...getMenuProps()}>
               {isOpen &&
                 suggestions.map((item, index) => (

@@ -41,6 +41,10 @@ const uiConfig = {
   },
   resolve: {
     extensions: ['.tsx', '.jsx', '.js'],
+    alias: {
+      crypto: require.resolve('crypto-browserify'),
+      stream: require.resolve('stream-browserify'), 
+    },
   },
   module: {
     rules: [
@@ -58,5 +62,6 @@ const uiConfig = {
   },
   target: 'web',
 };
+
 
 module.exports = [extensionConfig, uiConfig]; 
