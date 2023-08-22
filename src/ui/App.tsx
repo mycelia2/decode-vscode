@@ -30,12 +30,16 @@ export function App() {
     const handleMessage = async (event: MessageEvent) => {
       const data = event.data as any;
       if (data.command === "initialize") {
-        const credentials = RealmWeb.Credentials.apiKey(
-          data.currentUser.apiKey.key
-        );
-        const user = await RealmApp.logIn(credentials);
-        setCurrentUser(user);
-        setSessionId(data.sessionId); // Set the sessionId here
+        if (data && data.currentUser && data.sessionId) {
+          const credentials = RealmWeb.Credentials.apiKey(
+            data.currentUser.apiKey.key
+          );
+          const user = await RealmApp.logIn(credentials);
+          setCurrentUser(user);
+          {
+            setSessionId(data.sessionId);
+          }
+        }
         setLoading(false);
       }
     };
