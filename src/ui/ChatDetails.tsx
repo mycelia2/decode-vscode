@@ -93,6 +93,8 @@ export function ChatDetails({ sessionId }: { sessionId: string | null }) {
     try {
       await chatDetailsCollection.insertOne(chatDetail);
 
+      setDetails((prevDetails) => [...prevDetails, chatDetail]);
+
       fetch("http://localhost:8000/query", {
         method: "POST",
         headers: {
@@ -118,11 +120,15 @@ export function ChatDetails({ sessionId }: { sessionId: string | null }) {
                 return Promise.resolve();
               }
               const chunk = decoder.decode(value);
-              aiResponse += chunk.startsWith("data:") ? chunk.slice(5) : chunk;
+
+              // Only add non-empty chunks to the response
+
+              aiResponse += chunk;
               setTempAiResponses((prevResponses) => [
                 ...prevResponses.slice(0, prevResponses.length - 1),
                 aiResponse,
               ]);
+
               return reader.read().then(processText);
             });
         })
@@ -134,14 +140,6 @@ export function ChatDetails({ sessionId }: { sessionId: string | null }) {
       console.error("Failed to insert chat detail:", error);
       return;
     }
-
-    // sleep for 2 seconds - TODO: will fix later
-    // await new Promise((resolve) => setTimeout(resolve, 2000));
-
-    // vscode.postMessage({
-    //   command: "generateProjectStructure",
-    //   depth: 1,
-    // });
   };
 
   useEffect(() => {
@@ -200,20 +198,24 @@ export function ChatDetails({ sessionId }: { sessionId: string | null }) {
       <div className="chat-container" ref={chatContainerRef}>
         {details.map((detail) => (
           <div
-            key={detail._id!.toString()}
+            key={detail._id?.toString()}
             className={`message ${detail.sender}`}
           >
+            <span className="sender">
+              {detail.sender === "user" ? "You" : "AI"}:
+            </span>
             <ReactMarkdown>{detail.message}</ReactMarkdown>
-            <p>{detail.timestamp.toString()}</p>
           </div>
         ))}
         {aiResponses.map((response, index) => (
           <div key={index} className="message ai">
+            <span className="sender">AI:</span>
             <ReactMarkdown>{response}</ReactMarkdown>
           </div>
         ))}
         {tempAiResponses.map((response, index) => (
           <div key={index} className="message ai">
+            <span className="sender">AI:</span>
             <ReactMarkdown>{response}</ReactMarkdown>
           </div>
         ))}
@@ -229,7 +231,7 @@ export function ChatDetails({ sessionId }: { sessionId: string | null }) {
           selectedItem,
         }) => (
           <div>
-            <label {...getLabelProps()}>Start typing</label>
+            <label {...getLabelProps()}></label>
             <input
               {...getInputProps({
                 onChange: onInputChange,

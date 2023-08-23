@@ -9,15 +9,16 @@ export async function loginUser(
     const credentials = RealmWeb.Credentials.emailPassword(email, password);
     const user = await RealmApp.logIn(credentials);
 
-    const AUTH_API_KEY_ID = "authApiKey";
+    const AUTH_API_KEY_NAME = "authApiKey";
 
     let key;
-    try {
-      key = await user.apiKeys.fetch(AUTH_API_KEY_ID);
-    } catch (err) {
-      key = await user.apiKeys.create(AUTH_API_KEY_ID);
+    const keys = await user.apiKeys.fetchAll();
+    if (keys.length > 0) {
+      key = keys[0];
+    } else {
+      key = await user.apiKeys.create(AUTH_API_KEY_NAME);
     }
-    return { _id: user.id, email: user.profile.email, apiKey: key };
+    return { _id: user.id, email: user.profile.email, authApiKey: key };
   } catch (error) {
     console.error("Login failed:", error);
     return null;

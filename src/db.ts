@@ -33,7 +33,7 @@ export interface IFileContents extends Document {
 export interface IUser extends Document {
   email: string;
   _id: string;
-  apiKey: {
+  authApiKey: {
     _id: string;
     key: string;
     name: string;

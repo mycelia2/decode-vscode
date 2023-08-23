@@ -1,12 +1,12 @@
 {
   "name": "decode-vscode",
-  "displayName": "decode-vscode",
+  "displayName": "Decode VSCode",
   "description": "",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.81.0"
   },
-  "publisher": "your-publisher-name",
+  "publisher": "equilib",
   "categories": [
     "Other"
   ],
@@ -31,8 +31,8 @@
     },
     "commands": [
       {
-        "command": "decode-vs-code.openChatDetails",
-        "title": "Open Chat Details"
+        "command": "decode-vs-code.openChatSession",
+        "title": "Open Chat Session"
       },
       {
         "command": "decode-vs-code.createChatSession",

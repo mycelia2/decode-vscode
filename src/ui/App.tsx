@@ -32,7 +32,7 @@ export function App() {
       if (data.command === "initialize") {
         if (data && data.currentUser && data.sessionId) {
           const credentials = RealmWeb.Credentials.apiKey(
-            data.currentUser.apiKey.key
+            data.currentUser.authApiKey.key
           );
           const user = await RealmApp.logIn(credentials);
           setCurrentUser(user);

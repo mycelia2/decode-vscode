@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { fetchChatSessions } from "./chatSessionManager";
 import { IUser } from "./db";
 import { logout } from "./extension";
+import { create } from "lodash";
 
 export class TreeViewProvider
   implements vscode.TreeDataProvider<vscode.TreeItem>
@@ -31,11 +32,16 @@ export class TreeViewProvider
     if (!element) {
       const user = this._context.globalState.get("currentUser") as IUser;
       if (user) {
-        return fetchChatSessions(user.id).then((sessions) => {
-          console.log("getChildren", sessions);
-          const sessionTreeItems = sessions.map(
-            (session) => new vscode.TreeItem(session.lastMessagePreview)
-          );
+        return fetchChatSessions(user._id).then((sessions) => {
+          const sessionTreeItems = sessions.map((session) => {
+            const sessionTreeItem = new vscode.TreeItem(session.id);
+            sessionTreeItem.command = {
+              command: "decode-vs-code.openChatDetails",
+              title: "Open Chat Details",
+              arguments: [this._context, session.id], // Pass the session ID as an argument
+            };
+            return sessionTreeItem;
+          });
 
           // Create a new TreeItem for the "Create Chat Session" button
           const createChatSessionTreeItem = new vscode.TreeItem(
@@ -44,7 +50,7 @@ export class TreeViewProvider
           createChatSessionTreeItem.command = {
             command: "decode-vs-code.createChatSession",
             title: "Create Chat Session",
-            arguments: [this._context], // Pass the user ID and context to the command
+            arguments: [this._context],
           };
 
           // Add the "Create Chat Session" button to the top of the list
@@ -53,7 +59,7 @@ export class TreeViewProvider
           // Create a new TreeItem for the "Logout" button
           const logoutTreeItem = new vscode.TreeItem("Logout");
           logoutTreeItem.command = {
-            command: "decode-vs-code.logout", // Use the registered command identifier
+            command: "decode-vs-code.logout",
             title: "Logout",
           };
 
